@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Подключаем JS SDK Битрикса и библиотеку сканера -->
+    <script src="https://bitrix24.com"></script>
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        body { font-family: sans-serif; padding: 15px; margin: 0; background: #fff; }
+        .row { display: flex; gap: 10px; margin-bottom: 10px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { padding: 10px 15px; background: #eee; border: 1px solid #ccc; border-radius: 5px; cursor: pointer; }
+        #scanner-container { display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; flex-direction: column; }
+        #interactive { flex: 1; position: relative; overflow: hidden; }
+        #interactive video { width: 100%; height: 100%; object-fit: cover; }
+        .laser { position: absolute; top: 50%; left: 50%; width: 250px; height: 2px; background: red; transform: translate(-50%, -50%); box-shadow: 0 0 8px red; }
+        .send-btn { width: 100%; padding: 15px; background: #2fc6f6; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <h3 style="margin-top:0;">Сбор штрихкодов</h3>
+        <div id="fields">
+            <div class="row">
+                <input type="text" class="barcode" placeholder="Штрихкод" oninput="addRow(this)">
+                <button onclick="startScan(this)">📷</button>
+            </div>
+        </div>
+        <button class="send-btn" onclick="saveToSmartProcess()">СОХРАНИТЬ В БИТРИКС24</button>
+    </div>
+
+    <!-- Модалка сканера -->
+    <div id="scanner-container">
+        <div id="interactive">
+            <div class="laser"></div>
+        </div>
+        <button onclick="stopScan()" style="padding: 20px; background: #ff4b4b; color: white; border: none; font-weight: bold;">ЗАКРЫТЬ</button>
+    </div>
+
+<script>
+let activeInput = null;
+
+function startScan(btn) {
+    activeInput = btn.parentElement.querySelector('.barcode');
+    document.getElementById('scanner-container').style.display = 'flex';
+
+    Quagga.init({
+        inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: document.querySelector('#interactive'),
+            constraints: { facingMode: "environment" }
+        },
+        decoder: { readers: ["code_128_reader", "ean_reader", "code_39_reader"] }
+    }, function(err) {
+        if (err) { alert("Ошибка: " + err); return; }
+        Quagga.start();
+    });
+}
+
+Quagga.onDetected((data) => {
+    activeInput.value = data.codeResult.code;
+    if (navigator.vibrate) navigator.vibrate(100);
+    addRow(activeInput);
+    stopScan();
+});
+
+function stopScan() {
+    Quagga.stop();
+    document.getElementById('scanner-container').style.display = 'none';
+}
+
+function addRow(inp) {
+    const all = document.querySelectorAll('.barcode');
+    if (inp.value && inp === all[all.length - 1]) {
+        const div = document.createElement('div');
+        div.className = 'row';
+        div.innerHTML = `<input type="text" class="barcode" placeholder="Штрихкод" oninput="addRow(this)"><button onclick="startScan(this)">📷</button>`;
+        document.getElementById('fields').appendChild(div);
+    }
+}
+
+function saveToSmartProcess() {
+    const codes = Array.from(document.querySelectorAll('.barcode')).map(i => i.value).filter(v => v !== "");
+    if (codes.length === 0) return alert("Сначала отсканируйте коды");
+
+    // Здесь логика добавления в Смарт-процесс
+    codes.forEach(code => {
+        BX24.callMethod('crm.item.add', {
+            entityTypeId: 1032, // ЗАМЕНИТЕ НА ВАШ ID СМАРТ-ПРОЦЕССА
+            fields: {
+                title: "Скан " + code,
+                ufCrmXX_XXXXXXXXXX: code // ЗАМЕНИТЕ НА ВАШЕ ПОЛЕ
+            }
+        });
+    });
+    alert("Данные отправлены!");
+}
+</script>
+</body>
+</html>
