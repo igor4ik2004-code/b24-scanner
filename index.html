@@ -11639,26 +11639,30 @@ async function openScanner(btn) {
         document.getElementById('scanner-container').style.display = 'flex';
 
         Quagga.init({
-            inputStream: {
-                name: "Live",
-                type: "LiveStream",
-                target: document.querySelector('#interactive'),
-                constraints: { 
-                    facingMode: "environment",
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            },
-            locator: { patchSize: "medium", halfSample: true },
-            decoder: { 
-                readers: ["code_128_reader"], // Только Code 128 для почты
-                multiple: false 
-            },
-            locate: true
-        }, (err) => {
-            if (err) { alert("Ошибка: " + err); return; }
-            Quagga.start();
-        });
+    inputStream: {
+        name: "Live",
+        type: "LiveStream",
+        target: document.querySelector('#interactive'),
+        constraints: {
+            // Убираем жесткие идеальные значения, оставляем только направление
+            facingMode: "environment" 
+        },
+        area: { top: "10%", right: "10%", left: "10%", bottom: "10%" }
+    },
+    decoder: { 
+        readers: ["code_128_reader"],
+        multiple: false 
+    },
+    locate: true
+}, (err) => {
+    if (err) { 
+        // Выводим более подробную ошибку для диагностики
+        alert("Детальная ошибка: " + err.name + " - " + err.message); 
+        stopScanner();
+        return; 
+    }
+    Quagga.start();
+});
 
         Quagga.onDetected(onDetected);
 
